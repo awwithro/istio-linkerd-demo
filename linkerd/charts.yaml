@@ -1,0 +1,9 @@
+repositories:
+  - name: stable
+    url: https://kubernetes-charts.storage.googleapis.com
+charts:
+  - name: linkerd
+    namespace: linkerd
+    chart: stable/linkerd
+    version: 0.4.0
+    values: [ linkerd-values.yaml ]

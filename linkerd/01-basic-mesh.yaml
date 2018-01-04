@@ -1,0 +1,125 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: words
+  namespace: linkerd
+spec:
+  selector:
+    app: words
+  ports:
+  - port: 80
+    name: http
+    protocol: TCP
+    targetPort: traffic-port
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  namespace: linkerd
+  labels:
+    app: words
+    version: v1
+  name: words
+spec:
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: words
+        version: v1
+    spec:
+      containers:
+      - image: awithrow/words:v1
+        imagePullPolicy: IfNotPresent
+        name: words
+        ports:
+        - containerPort: 8080
+          name: traffic-port
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: simon
+  namespace: linkerd
+spec:
+  selector:
+    app: simon
+  ports:
+  - port: 80
+    name: http
+    protocol: TCP
+    targetPort: traffic-port
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  namespace: linkerd
+  labels:
+    app: simon
+    version: v1
+  name: simon
+spec:
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: simon
+        version: v1
+    spec:
+      containers:
+      - image: awithrow/simon:v1
+        imagePullPolicy: IfNotPresent
+        name: simon
+        ports:
+        - containerPort: 8080
+          name: traffic-port
+        env:
+          - name: WORDS_SERVICE
+            value: words
+          - name: HTTP_PROXY
+            value: "http://linkerd-linkerd:4140"
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: capitalizer
+  namespace: linkerd
+spec:
+  selector:
+    app: capitalizer
+  ports:
+  - port: 80
+    name: http
+    protocol: TCP
+    targetPort: traffic-port
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  namespace: linkerd
+  labels:
+    app: capitalizer
+    version: v1
+  name: capitalizer
+spec:
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: capitalizer
+        version: v1
+    spec:
+      containers:
+      - image: awithrow/capitalizer:v1
+        imagePullPolicy: IfNotPresent
+        name: capitalizer
+        ports:
+        - containerPort: 8080
+          name: traffic-port
+        env:
+          - name: WORDS_SERVICE
+            value: words
+          - name: SIMON_SERVICE
+            value: simon
+          - name: HTTP_PROXY
+            value: "http://linkerd-linkerd:4140"

@@ -1,0 +1,77 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: namerd
+  namespace: linkerd
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: namerd
+    spec:
+      volumes:
+      - name: namerd-config
+        configMap:
+          name: "namerd-config"
+      containers:
+      - name: namerd
+        image: "buoyantio/namerd:1.3.4"
+        args:
+        - /io.buoyant/namerd/config/config.yaml
+        ports:
+        - name: sync
+          containerPort: 4100
+        - name: api
+          containerPort: 4180
+        volumeMounts:
+        - name: "namerd-config"
+          mountPath: "/io.buoyant/namerd/config"
+          readOnly: true
+      - name: kubectl
+        image: "buoyantio/kubectl:v1.4.0"
+        args:
+        - "proxy"
+        - "-p"
+        - "8001"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: namerd
+  namespace: linkerd
+spec:
+  type: NodePort
+  ports:
+  - name: sync
+    port: 4100
+  - name: api
+    port: 4180
+  - name: admin
+    port: 9991
+  selector:
+    app: namerd
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: namerd-config
+  namespace: linkerd
+data:
+  config.yaml: |-
+    admin:
+      ip: 0.0.0.0
+      port: 9991
+    storage:
+      kind: io.l5d.inMemory
+    namers:
+      - kind: io.l5d.k8s
+        host: 127.0.0.1
+        port: 8001
+    interfaces:
+      - kind: io.l5d.thriftNameInterpreter
+        ip: 0.0.0.0
+        port: 4100
+      - kind: io.l5d.httpController
+        ip: 0.0.0.0
+        port: 4180
