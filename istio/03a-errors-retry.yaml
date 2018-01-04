@@ -1,0 +1,19 @@
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: words-routes
+  namespace: istio-system
+spec:
+  destination:
+    name: words
+  route:
+  - labels:
+      version: v1
+    weight: 90
+  - labels:
+      version: v2
+    weight: 10
+  httpReqRetries:
+    simpleRetry:
+      attempts: 10
+      perTryTimeout: 10s

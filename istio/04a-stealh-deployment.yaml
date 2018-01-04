@@ -1,0 +1,56 @@
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: words-routes
+  namespace: istio-system
+spec:
+  precedence: 10
+  destination:
+    name: words
+    namespace: istio-system
+  route:
+  - labels:
+      version: v1
+    weight: 100
+  - labels:
+      version: v2
+    weight: 0
+---
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: words-normal-route
+  namespace: istio-system
+spec:
+  precedence: 20
+  destination:
+    name: words
+    namespace: istio-system
+  route:
+  - labels:
+      version: v1
+  match:
+    request:
+      headers:
+        x-use-canary:
+          exact: "false"
+---
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: words-stealh-route
+  namespace: istio-system
+spec:
+  precedence: 30
+  destination:
+    name: words
+    namespace: istio-system
+  route:
+  - labels:
+      version: v2
+  match:
+    request:
+      headers:
+        x-use-canary:
+          exact: "true"
+---

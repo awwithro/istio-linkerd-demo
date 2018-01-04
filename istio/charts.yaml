@@ -1,0 +1,9 @@
+repositories:
+  - name: incubator
+    url: https://kubernetes-charts-incubator.storage.googleapis.com
+charts:
+  - name: istio
+    namespace: istio-system
+    chart: incubator/istio
+    version: 0.2.8-chart2
+    values: [ values.yaml ]
