@@ -6,7 +6,7 @@ metadata:
 spec:
   selector:
     app: words
-    version: v1 
+    version: v1
   ports:
   - port: 80
     name: http
@@ -18,7 +18,7 @@ kind: Deployment
 metadata:
   namespace: linkerd
   labels:
-    app: words-v1
+    app: words
     version: v1
   name: words-v1
 spec:
@@ -36,6 +36,49 @@ spec:
         ports:
         - containerPort: 8080
           name: traffic-port
+        args:
+        - -starts_with=a
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: words-v2
+  namespace: linkerd
+spec:
+  selector:
+    app: words
+    version: v2
+  ports:
+  - port: 80
+    name: http
+    protocol: TCP
+    targetPort: traffic-port
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  namespace: linkerd
+  labels:
+    app: words
+    version: v2
+  name: words-v2
+spec:
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: words
+        version: v2
+    spec:
+      containers:
+      - image: awithrow/words:v1
+        imagePullPolicy: IfNotPresent
+        name: words
+        ports:
+        - containerPort: 8080
+          name: traffic-port
+        args:
+        - -starts_with=z
 ---
 kind: Service
 apiVersion: v1

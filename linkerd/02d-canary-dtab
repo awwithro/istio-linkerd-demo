@@ -1,4 +1,4 @@
 /srv => /#/io.l5d.k8s/linkerd/http;
 /svc/simon => /srv/simon-v1;
-/svc/words =>/srv/words-v1;
+/svc/words => /srv/words-v2;
 /svc/capitalize => /srv/capitalizer-v1;
