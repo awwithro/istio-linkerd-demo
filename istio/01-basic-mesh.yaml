@@ -35,7 +35,7 @@ metadata:
   labels:
     app: words
     version: v1
-  name: words
+  name: words-v1
 spec:
   replicas: 2
   template:

@@ -186,7 +186,6 @@ spec:
           name: traffic-port
         args:
         - -starts_with=z
-        - -error_rate=50
       - args:
         - proxy
         - sidecar
