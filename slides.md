@@ -1,4 +1,9 @@
 # Services Meshes with Istio and Linkerd
+Alex Withrow
+[awithrow@gmail.com](mailto:awithrow@gmail.com)
+[linkedin](www.linkedin.com/in/alex-withrow)
+[https://github.com/awwithro/istio-linkerd-demo](https://github.com/awwithro/istio-linkerd-demo)
+
 ---
 # What is a Service Mesh?
 ---
