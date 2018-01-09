@@ -19,7 +19,9 @@
             - [Linkerd](#linkerd)
 ## About
 
-This repo contains a demo showing the usage of both linkerd and istio in kubernets. It contains a few microservices that will run in the service mesh.
+This repo contains a demo showing the usage of both linkerd and istio in kubernetes. It contains a few microservices that will run in the service mesh.
+
+Presentation slides made with [reveal-ck](https://github.com/jedcn/reveal-ck)
 ## Requirements
 
 * minikube running kubernetes >= v1.8.0
