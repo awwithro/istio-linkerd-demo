@@ -1,0 +1,537 @@
+<section>
+
+<h1>Services Meshes with Istio and Linkerd</h1>
+
+</section>
+<section>
+
+<h1>What is a Service Mesh?</h1>
+
+</section>
+<section>
+
+<ul>
+  <li>System for handling inter-service communication</li>
+  <li>Works with service discovery</li>
+  <li>Adds control and visibility</li>
+  <li>Can be used to manage policy and security</li>
+  <li>Can provide metrics for service communication</li>
+</ul>
+
+</section>
+<section>
+
+<p>Removes routing &amp; infrastructure concerns out of application code</p>
+
+</section>
+<section>
+
+<p>“The explicit goal of the service mesh is to move service communication out of the realm of the invisible, implied infrastructure, and into the role of a first-class member of the ecosystem—where it can be monitored, managed and controlled.” – <a href="https://buoyant.io/2017/04/25/whats-a-service-mesh-and-why-do-i-need-one/">William Morgan</a></p>
+
+</section>
+<section>
+
+<h1>Istio Overview</h1>
+
+</section>
+<section>
+
+<h2>Istio</h2>
+<ul>
+  <li>Uses the Envoy proxy under the hood.</li>
+  <li>Envoy was developed at Lyft as their service proxy</li>
+  <li>Istio adds management an kubernetes integration on-top of Envoy</li>
+  <li>Designed for kubernetes primarily</li>
+  <li>Acts as an invisible proxy. Traffic is forwarded via IPTables</li>
+  <li>Manages rules with kubernetes api through CustomResourceDefinitions (CRDs)</li>
+</ul>
+
+</section>
+<section>
+
+<h2>Istio Components</h2>
+<ul>
+  <li>Sidecar - Envoy proxy that runs in the same pod as a service</li>
+  <li>Pilot - Primary Control service. Provides routes/rules/endpoints to sidecars</li>
+  <li>Mixer - Allows for extending Istio. Can be used to provide policy, metrics</li>
+  <li>Auth - Used for providing mTLS between sidecars.</li>
+</ul>
+
+</section>
+<section>
+
+<h2>Istio Architecture</h2>
+<p><img src="./images/istio-arch.svg" alt="arch"><br>
+<a href="https://istio.io/docs/concepts/what-is-istio/overview.html#architecture">source</a></p>
+
+</section>
+<section>
+
+<h2>Sample Route</h2>
+<pre><code>apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: my-rule
+    spec:
+    destination:
+        name: my-service
+    route:
+    - labels:
+        version: v1
+        weight: 100
+</code></pre>
+
+</section>
+<section>
+
+<h1>Linkerd Overview</h1>
+
+</section>
+<section>
+
+<h2>Linkerd</h2>
+<ul>
+  <li>Uses Finagle under the hood</li>
+  <li>Finagle developed at Twitter as an RPC library for the JVM</li>
+  <li>Allows services to use Finagle as a proxy. Language agnostic</li>
+  <li>Explicit proxy</li>
+</ul>
+
+</section>
+<section>
+
+<h2>Linkerd Components</h2>
+<ul>
+  <li>Linkerd - Primary proxy that handles traffic. Can run as a sidecar or per node.</li>
+  <li>Namerd - Centralized service for configuring routing/discovery</li>
+  <li>Delegation Tables (Dtabs) - Configuration for translating requests to endpoints</li>
+</ul>
+
+</section>
+<section>
+
+<h2>Example dtab</h2>
+
+<pre><code>/http/1.1/GET   =&gt; /svc ;
+/svc/my-service =&gt; /version/my-service/v1 ;
+/version        =&gt; /#/io.l5d.k8s/default/http ;
+</code></pre>
+
+</section>
+<section>
+
+<pre><code>curl http://my-service/hello-world
+</code></pre>
+
+</section>
+<section>
+
+<pre><code>/http/1.1/GET   =&gt; /svc ;
+/svc/my-service =&gt; /version/my-service/v1 ;
+/version        =&gt; /#/io.l5d.k8s/default/http ;
+</code></pre>
+
+<p>request interpreted as</p>
+
+<pre><code>/http/1.1/GET/my-service/hello-world
+</code></pre>
+
+<p>matches</p>
+
+<pre><code>/http/1.1/GET
+</code></pre>
+
+<p>becomes</p>
+
+<pre><code>/svc/my-service/hello-world
+</code></pre>
+
+</section>
+<section>
+
+<pre><code>/http/1.1/GET   =&gt; /svc ;
+/svc/my-service =&gt; /version/my-service/v1 ;
+/version        =&gt; /#/io.l5d.k8s/default/http ;
+</code></pre>
+
+<p>-</p>
+
+<pre><code>/svc/my-service/hello-world
+</code></pre>
+
+<p>matches</p>
+
+<pre><code>/scv/my-service
+</code></pre>
+
+<p>becomes</p>
+
+<pre><code>/version/my-service/v1/hello-world
+</code></pre>
+
+</section>
+<section>
+
+<pre><code>/http/1.1/GET   =&gt; /svc ;
+/svc/my-service =&gt; /version/my-service/v1 ;
+/version        =&gt; /#/io.l5d.k8s/default/http ;
+</code></pre>
+
+<p>-</p>
+
+<pre><code>/version/my-service/v1/hello-world
+</code></pre>
+
+<p>matches</p>
+
+<pre><code>/version
+</code></pre>
+
+<p>becomes</p>
+
+<pre><code>/#/io.l5d.k8s/default/http/my-service/v1/hello-world
+</code></pre>
+
+</section>
+<section>
+
+<pre><code>/#/io.l5d.k8s/default/http/my-service/v1/hello-world
+</code></pre>
+
+<p>This is a lookup in k8s for:</p>
+<ul>
+  <li>In the <code>default</code> namespace</li>
+  <li>on the port labeled <code>http</code>
+</li>
+  <li>an instance of the <code>my-service</code> service</li>
+  <li>with the version label of <code>v1</code>
+</li>
+</ul>
+
+</section>
+<section>
+
+<pre><code>curl http://my-service/hello-world
+</code></pre>
+
+<p>becomes</p>
+
+<pre><code>100.10.25.116:80/hello-world
+</code></pre>
+
+</section>
+<section>
+
+<h1>Istio + Linkerd Comparison</h1>
+
+</section>
+<section>
+
+<h2>Protocols</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: left"> </th>
+      <th style="text-align: center">HTTP</th>
+      <th style="text-align: center">HTTP2/ gRPC</th>
+      <th style="text-align: center">TCP</th>
+      <th style="text-align: center">Thrift</th>
+      <th style="text-align: center">Mux</th>
+      <th style="text-align: center">Websockets</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: left">Istio</td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":x:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/274c.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":x:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/274c.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+    </tr>
+    <tr>
+      <td style="text-align: left">Linkerd</td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":x:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/274c.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":x:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/274c.png"></td>
+    </tr>
+  </tbody>
+</table>
+
+</section>
+<section>
+
+<h2>Discovery</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: left"> </th>
+      <th style="text-align: center">Kubernetes</th>
+      <th style="text-align: center">Consul</th>
+      <th style="text-align: center">Nomad</th>
+      <th style="text-align: center">Marathon</th>
+      <th style="text-align: center">ZK</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: left">Istio</td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":x:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/274c.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":x:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/274c.png"></td>
+    </tr>
+    <tr>
+      <td style="text-align: left">Linkerd</td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":x:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/274c.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+    </tr>
+  </tbody>
+</table>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: left"> </th>
+      <th style="text-align: center">DNS_SRV</th>
+      <th style="text-align: center">Curator</th>
+      <th style="text-align: center">File Based</th>
+      <th style="text-align: center">Eureka</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: left">Istio</td>
+      <td style="text-align: center"><img class="emoji" alt=":x:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/274c.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":x:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/274c.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":x:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/274c.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+    </tr>
+    <tr>
+      <td style="text-align: left">Linkerd</td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":x:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/274c.png"></td>
+    </tr>
+  </tbody>
+</table>
+
+</section>
+<section>
+
+<h2>Routing</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: left"> </th>
+      <th style="text-align: center">Host</th>
+      <th style="text-align: center">Path</th>
+      <th style="text-align: center">Method</th>
+      <th style="text-align: center">Source</th>
+      <th style="text-align: center">Arbitrary Header</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: left">Istio</td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+    </tr>
+    <tr>
+      <td style="text-align: left">Linkerd*</td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+    </tr>
+  </tbody>
+</table>
+
+<ul>
+  <li>Linkerd routing methods are determined per linkerd server</li>
+</ul>
+
+</section>
+<section>
+
+<h2>Metrics</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: left"> </th>
+      <th style="text-align: center">Prometheus</th>
+      <th style="text-align: center">StatsD</th>
+      <th style="text-align: center">StackDriver</th>
+      <th style="text-align: center">Zipkin</th>
+      <th style="text-align: center">InfluxDB</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: left">Istio</td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":x:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/274c.png"></td>
+    </tr>
+    <tr>
+      <td style="text-align: left">Linkerd</td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":x:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/274c.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+    </tr>
+  </tbody>
+</table>
+
+</section>
+<section>
+
+<h2>Other</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: left"> </th>
+      <th style="text-align: center">mTLS</th>
+      <th style="text-align: center">Fault Injection</th>
+      <th style="text-align: center">Retries</th>
+      <th style="text-align: center">Policy</th>
+      <th style="text-align: center">Egress</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: left">Istio</td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+    </tr>
+    <tr>
+      <td style="text-align: left">Linkerd</td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":x:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/274c.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":white_check_mark:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/2705.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":x:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/274c.png"></td>
+      <td style="text-align: center"><img class="emoji" alt=":x:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/274c.png"></td>
+    </tr>
+  </tbody>
+</table>
+
+</section>
+<section>
+
+<h2>Observations</h2>
+<ul>
+  <li>Linkerd &amp; Envoy are part of the CNCF (not Istio)</li>
+  <li>Linkerd more feature complete and stable. Announced (02/16)</li>
+  <li>Istio still beta and not quite production ready. Announced (05/17)</li>
+  <li>Istio approach more flexible</li>
+  <li>Mixer Adapters are a big plus for Istio</li>
+  <li>Both have a steep learning curve</li>
+</ul>
+
+</section>
+<section>
+
+<p><img src="./images/istio-upgrade.png" alt="Upgrades"><br>
+<a href="https://istio.io/docs/guides/upgrading-istio.html">source</a></p>
+
+</section>
+<section>
+
+<h1>Istio and Linkerd can be combined!</h1>
+
+</section>
+<section>
+
+<ul>
+  <li>Linkerd 1.1.1 introduced support for Istio</li>
+  <li>Istio provides the control plane</li>
+  <li>Linkerd provides the data plane</li>
+</ul>
+
+</section>
+<section>
+
+<h1>Demo Time!</h1>
+
+</section>
+<section>
+
+<h2>The Three Services</h2>
+<ul>
+  <li>
+<strong>words</strong>: generates a random word</li>
+  <li>
+<strong>simon</strong>: prints “Simon Says: <em>word</em>”</li>
+  <li>
+<strong>capitalizer</strong>: calls either words service or simon service and capitalizes the output</li>
+</ul>
+
+</section>
+<section>
+
+<h2>Demo 1</h2>
+<p>Basic Service Mesh</p>
+
+</section>
+<section>
+
+<h2>Demo 2</h2>
+<p>Canary Deployment</p>
+
+</section>
+<section>
+
+<h2>Demo 3</h2>
+<p>Errors and Retries</p>
+
+</section>
+<section>
+
+<h2>Demo 4</h2>
+<p>Stealth Deployment</p>
+
+</section>
+<section>
+
+<h1>Questions?</h1>
+
+</section>
+<section>
+
+<h1>Useful Links</h1>
+
+</section>
+<section>
+
+<ul>
+  <li><a href="https://buoyant.io/2017/04/25/whats-a-service-mesh-and-why-do-i-need-one/">What is a service mesh?</a></li>
+  <li><a href="https://istio.io/docs/">Istio Docs</a></li>
+  <li><a href="https://linkerd.io/config/1.3.4/linkerd/index.html">Linkerd Docs</a></li>
+  <li><a href="https://medium.com/@jeffzzq/linkerd-vs-istio-my-2-1e16557891a6">Linkerd vs Istio: my 2¢ – Jeff Gensler</a></li>
+</ul>
+
+</section>
